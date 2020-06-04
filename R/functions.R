@@ -90,6 +90,7 @@ finnhubr_api_wait <- function(){
 #'
 #' @examples
 #' \dontrun{
+#' finnhubr_api_key("a1b2c3d4e5")
 #' exchange_symbols("DE")
 #'
 #' }
@@ -110,6 +111,7 @@ exchange_symbols <- function(exchange_code){
 #'
 #' @examples
 #' \dontrun{
+#' finnhubr_api_key("a1b2c3d4e5")
 #' stock_quote("LHA.DE")
 #' }
 stock_quote <- function(symbol){
@@ -133,11 +135,12 @@ stock_quote <- function(symbol){
 #' @param to Last observation date / datetime. Defaults to 2099-12-31 23:59
 #'
 #' @importFrom jsonlite fromJSON
-#' @return
+#' @return a data frame with candle data open,high,low, close, volume,timestamp
 #' @export
 #'
 #' @examples
 #' \dontrun{
+#' finnhubr_api_key("a1b2c3d4e5")
 #' stock_candles("LHA.DE")
 #' stock_candles("LHA.DE",resolution="W")
 #' stock_candles("LHA.DE",from="2020-05-01")
@@ -163,7 +166,7 @@ stock_candles <- function(symbol,resolution = "D",
                          flatten=TRUE)
   x <- as.data.frame(x)
   if (length(x)>1){
-  names(x) <- c("current","high","low","open","status","timestamp","volume")
+  names(x) <- c("close","high","low","open","status","timestamp","volume")
   x[,"timestamp"] <-as.POSIXct(x[,"timestamp"],origin="1970-01-01")
   } else {
     names(x)<-"status"
@@ -184,7 +187,7 @@ stock_candles <- function(symbol,resolution = "D",
 #'
 #' @examples
 #' \dontrun{
-#'
+#' finnhubr_api_key("a1b2c3d4e5")
 #' stock_profile("LHA.DE")
 #' stock_profile("DE0008232125", type="isin")
 #'
@@ -196,3 +199,57 @@ stock_profile <- function(code,type="symbol"){
                      code,token)
   jsonlite::fromJSON(httr::content(httr::GET(endpoint),as="text"),flatten=TRUE)
 }
+
+finnhubr_http_result <- function(endpoint){
+  result <- httr::GET(endpoint)
+  sc     <- httr::status_code(result)
+  if (!(sc < 300 && sc >= 200)){
+    stop(httr::content(result, as = "text"), call. = FALSE)
+  }
+  jsonlite::fromJSON(httr::content(result,as = "text",encoding = "UTF-8"),
+                     flatten=TRUE)
+}
+
+#' Generic GETter for Finnhub endpoints
+#'
+#' Query the Finnnhub.io API endpoint. For a documentation see
+#' \href{https://finnhub.io/docs/api}{here}
+#'
+#' @param symbol Symbol code or NULL (default)
+#' @param endpoint The API endpoint, e.g. "stock/profile2", or "stock/candle"
+#' @param ... (Optional) parameters required by the endpoint. Refer to the
+#' documentation.
+#'
+#' @return The endpoint's content.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' finnhubr_api_key("a1b2c3d4e5")
+#' fh_get("AAPL","stock/profile2") # same as stock_profile() above
+#' fh_get(NULL,"forex/exchange")
+#' }
+fh_get <- function(symbol=NULL,endpoint,...){
+  # everything 'dateay' must be trasnformed to unix datetime
+  dots <- list(...)
+  dots$token <- finnhubr_api_key()
+  dots$symbol <- symbol
+  url <- paste0("https://finnhub.io/api/v1/",endpoint,"?",
+                paste0(names(dots),"=",dots,collapse="&"))
+  response <- httr::GET(url)
+  sc <- httr::status_code(response)
+  content <- httr::content(response,as="text",encoding = "UTF-8")
+  if (!(sc>=200 && sc<300)){
+    stop(content,call=FALSE)
+  }
+  if (!(httr::http_type(response) %in% c("text/csv","application/json"))){
+    stop(content,call=FALSE)
+  }
+  if (httr::http_type(response)=="text/csv"){
+    readr::read_csv(content)
+  } else{ # must be json
+    tibble::as_tibble(jsonlite::fromJSON(content,flatten=TRUE),
+                      stringsAsFactors = FALSE)
+  }
+}
+

@@ -1,14 +1,14 @@
 test_that("API key set / get works", {
 expect_error(finnhubr_api_key())
-  expect_invisible(finnhubr_api_key("brb8o57rh5rb7je2md60"))
-expect_identical(finnhubr_api_key(),"brb8o57rh5rb7je2md60")
+  expect_invisible(finnhubr_api_key("brcfkm7rh5rap841kf2g")) # demo key
+expect_identical(finnhubr_api_key(),"brcfkm7rh5rap841kf2g") # demo key
 })
 
 
 
 test_that("finnhubr functionality works", {
 
-#  finnhubr_api_key("brb8o57rh5rb7je2md60")
+  finnhubr_api_key("brcfkm7rh5rap841kf2g")
 
   expect_equal(
     length(
